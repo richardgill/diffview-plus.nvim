@@ -244,6 +244,52 @@ describe("diffview.vcs.adapters.git", function()
   end)
 
   describe("show_untracked", function()
+    for _, case in ipairs({
+      { name = "historical comparisons", left = RevType.COMMIT, right = RevType.COMMIT },
+      { name = "reverse comparisons", left = RevType.LOCAL, right = RevType.COMMIT },
+      {
+        name = "commit vs LOCAL with -uno",
+        left = RevType.COMMIT,
+        right = RevType.LOCAL,
+        uno = true,
+      },
+      {
+        name = "commit vs LOCAL with git config hiding untracked",
+        left = RevType.COMMIT,
+        right = RevType.LOCAL,
+        hide = true,
+      },
+      {
+        name = "STAGE vs LOCAL with git config hiding untracked",
+        left = RevType.STAGE,
+        right = RevType.LOCAL,
+        hide = true,
+      },
+    }) do
+      it(
+        "returns false for " .. case.name,
+        test_utils.async_test(function()
+          local repo, adapter = make_repo_and_adapter()
+          local ok, err = pcall(function()
+            if case.hide then
+              run({ "git", "config", "status.showUntrackedFiles", "no" }, repo)
+            end
+            local head = run({ "git", "rev-parse", "HEAD" }, repo)
+            local left = GitRev(case.left, case.left == RevType.STAGE and 0 or head)
+            local right = GitRev(case.right, case.right == RevType.COMMIT and head or nil)
+            assert.is_false(adapter:show_untracked({
+              revs = { left = left, right = right },
+              dv_opt = case.uno and { show_untracked = false } or nil,
+            }))
+          end)
+          test_utils.cleanup_repo(repo)
+          if not ok then
+            error(err)
+          end
+        end)
+      )
+    end
+
     it(
       "returns true when left is STAGE and right is LOCAL",
       test_utils.async_test(function()
@@ -268,7 +314,7 @@ describe("diffview.vcs.adapters.git", function()
     )
 
     it(
-      "returns false when left is COMMIT and right is LOCAL",
+      "returns true when left is COMMIT and right is LOCAL",
       test_utils.async_test(function()
         local repo, adapter = make_repo_and_adapter()
 
@@ -277,7 +323,7 @@ describe("diffview.vcs.adapters.git", function()
           local left = GitRev(RevType.COMMIT, head)
           local right = GitRev(RevType.LOCAL)
           local result = adapter:show_untracked({ revs = { left = left, right = right } })
-          assert.is_false(result)
+          assert.is_true(result)
         end)
 
         vim.schedule(function()
