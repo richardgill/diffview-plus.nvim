@@ -716,7 +716,7 @@ function File:detach_buffer()
       end
 
       -- Diagnostics
-      if state.disable_diagnostics then
+      if state.disable_diagnostics and api.nvim_buf_is_valid(self.bufnr) then
         vim.diagnostic.enable(true, { bufnr = self.bufnr })
       end
 
